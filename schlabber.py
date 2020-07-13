@@ -29,7 +29,9 @@ class Soup:
             if script.string and "SOUP.Endless.next_url" in script.string:
                 print("\t...found")
                 self.dlnextfound = True
-                return script.string.split('\'')[-2].strip()
+                nexturl = script.string.split('\'')[-2].strip()
+                if nexturl != "none":
+                    return nexturl
         self.dlnextfound = False
         return ""
 
