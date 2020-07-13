@@ -230,6 +230,11 @@ class Soup:
             self.process_assets(meta, post)
             self.write_meta(meta, timestamp)
 
+    def backoff(self, message, times):
+        backoff_secs = 5
+        print("%s, backing off %ds..." % (message, times*backoff_secs))
+        time.sleep(backoff_secs * times)
+        return times + 1
 
     def backup(self, cont_id = None):
         dlurl = self.rooturl
@@ -247,20 +252,21 @@ class Soup:
                 backoff_factor = 1
                 page = BeautifulSoup(dl.content, 'html.parser')
                 print("Looking for next Page")
-                dlurl = self.rooturl + self.find_next_page(page)
+                next = self.find_next_page(page)
+                if next is None and self.dlnextfound:
+                    backoff_factor = self.backoff("Could not find 'next' endless-scrolling link", backoff_factor)
+                    continue
                 print("Process Posts")
                 self.process_posts(page)
                 if self.dlnextfound == False:
                     print("no next found.")
                     break
+                dlurl = self.rooturl + next
+                print("Next batch of posts: " + dlurl)
             if dl.status_code == 429:
-                print("Rate-limited, backing off %ds..." % 5 * backoff_factor)
-                time.sleep(5 * backoff_factor)
-                backoff_factor += 1
+                backoff_factor = self.backoff("Rate-limited", backoff_factor)
             elif dl.status_code > 500:
-                print("Received 500 status, backing off %ds..." % 5 * backoff_factor)
-                time.sleep(5 * backoff_factor)
-                backoff_factor += 1
+                backoff_factor = self.backoff("Received 5xx status code", backoff_factor)
             elif dl.status_code > 400:
                 print("Page not found")
                 return
