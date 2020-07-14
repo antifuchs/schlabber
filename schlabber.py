@@ -267,11 +267,11 @@ class Soup:
                 print("Next batch of posts: " + dlurl)
             if dl.status_code == 429:
                 backoff_factor = self.backoff("Rate-limited", backoff_factor)
-            elif dl.status_code > 500:
-                backoff_factor = self.backoff("Received 5xx status code", backoff_factor)
-            elif dl.status_code > 400:
+            elif dl.status_code == 404:
                 print("Page not found")
                 return
+            elif dl.status_code > 400: # includes 5xx status codes
+                backoff_factor = self.backoff("Received %d status code" % dl.status_code, backoff_factor)
 
 def main(soups, bup_dir, cont_from):
     for site in soups:
