@@ -165,7 +165,7 @@ class Soup:
         return meta
 
     def process_unkown(self, post, post_type):
-        print("\t\tUnsuported tpye:")
+        print("\t\tUnsuported type:")
         print("\t\t\tType: " + post_type)
         meta = {}
         meta['unsupported'] = True
@@ -173,6 +173,11 @@ class Soup:
 
     def get_meta(self, post):
         meta = {}
+        if post.select('div.meta') == []:
+            # We're not a real post (probably just a post-like div
+            # inside a real post), quit while we're ahead.
+            return None
+
         css_type = post.get('class')[1]
         meta['css_type'] = css_type
         meta['type'] = css_type.replace("post_", "")
@@ -202,29 +207,32 @@ class Soup:
 
 
     def process_posts(self, cur_page):
-        posts = cur_page.find_all('div', {"class": "post"})
+        posts = cur_page.select('div.post')
         for post in posts:
-            post_type = post.get('class')[1]
-            timestamp = self.get_timestamp(post)
             meta = self.get_meta(post)
+            if meta is None:
+                # We found a non-post div.
+                continue
+            timestamp = self.get_timestamp(post)
             meta['raw'] = str(post)
+            post_type = meta['type']
             print("\t\t%s: %s %s" % (timestamp, post_type, meta['permalink']))
 
-            if post_type == "post_image":
+            if post_type == "image":
                 meta['post'] = self.process_image(post)
-            elif post_type == "post_quote":
+            elif post_type == "quote":
                 meta['post'] = self.process_quote(post)
-            elif post_type == "post_video":
+            elif post_type == "video":
                 meta['post'] = self.process_video(post)
-            elif post_type == "post_link":
+            elif post_type == "link":
                 meta['post'] = self.process_link(post)
-            elif post_type == "post_file":
+            elif post_type == "file":
                 meta['post'] = self.process_file(post)
-            elif post_type == "post_review":
+            elif post_type == "review":
                 meta['post'] = self.process_review(post)
-            elif post_type == "post_event":
+            elif post_type == "event":
                 meta['post'] = self.process_event(post)
-            elif post_type == "post_regular":
+            elif post_type == "regular":
                 meta['post'] = self.process_regular(post)
             else:
                 meta['post'] = self.process_unkown(post, post_type)
