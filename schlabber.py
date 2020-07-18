@@ -8,7 +8,7 @@ import json
 import pprint
 import hashlib
 import time
-from tempfile import NamedTemporaryFile
+import tempfile
 from bs4 import BeautifulSoup
 
 class Soup:
@@ -64,8 +64,8 @@ class Soup:
                     # The file is broken (maybe residue from an old export?), try to overwrite it:
                     print("\t\t\tOverwriting invalid JSON file %s" % filename)
                     pass
-        with tempfile.NamedTemporaryFile(dir=os.path.dirname(filename)) as outfile:
-            json.dump(meta, outfile)
+        with tempfile.NamedTemporaryFile(dir=os.path.dirname(filename), mode='w') as f:
+            json.dump(meta, f.file)
             os.link(f.name, filename)
 
     def process_assets(self, meta, post):
