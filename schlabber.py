@@ -8,6 +8,7 @@ import json
 import pprint
 import hashlib
 import time
+from http.cookiejar import CookieJar
 from bs4 import BeautifulSoup
 
 class Soup:
@@ -108,6 +109,10 @@ class Soup:
     def process_video(self, post):
         meta = {}
         meta['embed'] = str(post.find("div", {'class':'embed'}))
+        source = post.select("div.admin-edit textarea.sourcecode")
+        if len(source) == 1:
+            # for soups on which we can edit, fetch the source:
+            meta['source'] = source[0].text.strip()
         bodyelem = post.find("div", {'class':'body'})
         if bodyelem:
             meta['body'] = str(bodyelem)
@@ -246,8 +251,11 @@ class Soup:
         time.sleep(backoff_secs * times)
         return times + 1
 
-    def backup(self, cont_id = None):
+    def backup(self, cont_id = None, session_cookie = None):
         dlurl = self.rooturl
+        cookies={}
+        if session_cookie is not None:
+            cookies["soup_session_id"] = session_cookie
         if cont_id != "":
             # normalize the ID:
             cont_id = cont_id.replace("/since/", "")
@@ -257,7 +265,7 @@ class Soup:
 
         while True:
             print("Get: " + dlurl)
-            dl = requests.get(dlurl)
+            dl = requests.get(dlurl, cookies=cookies)
             if dl.status_code == 200:
                 backoff_factor = 1
                 page = BeautifulSoup(dl.content, 'html.parser')
@@ -281,15 +289,16 @@ class Soup:
             elif dl.status_code > 400: # includes 5xx status codes
                 backoff_factor = self.backoff("Received %d status code" % dl.status_code, backoff_factor)
 
-def main(soups, bup_dir, cont_from):
+def main(soups, bup_dir, cont_from, session_cookie):
     for site in soups:
         soup = Soup(site, bup_dir)
-        soup.backup(cont_from)
+        soup.backup(cont_from, session_cookie)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Soup.io backup')
     parser.add_argument('soups', nargs=1, type=str, default=None, help="Name your soup")
     parser.add_argument('-d','--dir', default=os.getcwd(), help="Directory for Backup (default: Working dir)")
     parser.add_argument('-c', '--continue_from', default="", help='Continue from given suburl (Example: /since/696270106?mode=own)')
+    parser.add_argument('-s', '--session_cookie', default=None, help="Use this session cookie to make HTTP requests (to fetch logged-in content & see video embeds' sources)")
     args = parser.parse_args()
-    main(args.soups, args.dir, args.continue_from)
+    main(args.soups, args.dir, args.continue_from, args.session_cookie)
