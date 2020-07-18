@@ -9,6 +9,7 @@ import pprint
 import hashlib
 import time
 import tempfile
+import urllib3.exceptions
 from bs4 import BeautifulSoup
 
 class Soup:
@@ -272,30 +273,35 @@ class Soup:
         backoff_factor = 1
 
         while True:
-            print("Get: " + dlurl)
-            dl = requests.get(dlurl, cookies=cookies)
-            if dl.status_code == 200:
-                backoff_factor = 1
-                page = BeautifulSoup(dl.content, 'html.parser')
-                print("Looking for next Page")
-                next = self.find_next_page(page)
-                if next is None and self.dlnextfound:
-                    backoff_factor = self.backoff("Could not find 'next' endless-scrolling link", backoff_factor)
-                    continue
-                print("Process Posts")
-                self.process_posts(page)
-                if self.dlnextfound == False:
-                    print("no next found.")
-                    break
-                dlurl = self.rooturl + next
-                print("Next batch of posts: " + dlurl)
-            if dl.status_code == 429:
-                backoff_factor = self.backoff("Rate-limited", backoff_factor)
-            elif dl.status_code == 404:
-                print("Page not found")
-                return
-            elif dl.status_code > 400: # includes 5xx status codes
-                backoff_factor = self.backoff("Received %d status code" % dl.status_code, backoff_factor)
+            try:
+                print("Get: " + dlurl)
+                dl = requests.get(dlurl, cookies=cookies)
+                if dl.status_code == 200:
+                    backoff_factor = 1
+                    page = BeautifulSoup(dl.content, 'html.parser')
+                    print("Looking for next Page")
+                    next = self.find_next_page(page)
+                    if next is None and self.dlnextfound:
+                        backoff_factor = self.backoff("Could not find 'next' endless-scrolling link", backoff_factor)
+                        continue
+                    print("Process Posts")
+                    self.process_posts(page)
+                    if self.dlnextfound == False:
+                        print("no next found.")
+                        break
+                    dlurl = self.rooturl + next
+                    print("Next batch of posts: " + dlurl)
+                if dl.status_code == 429:
+                    backoff_factor = self.backoff("Rate-limited", backoff_factor)
+                elif dl.status_code == 404:
+                    print("Page not found")
+                    return
+                elif dl.status_code > 400: # includes 5xx status codes
+                    backoff_factor = self.backoff("Received %d status code" % dl.status_code, backoff_factor)
+            except urllib3.exceptions.HTTPError as e:
+                backoff_factor = self.backoff("Received urllib error")
+            except ConnectionError:
+                backoff_factor = self.backoff("Connection error")
 
 def main(soups, bup_dir, cont_from, session_cookie):
     for site in soups:
