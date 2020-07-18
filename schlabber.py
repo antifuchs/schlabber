@@ -8,7 +8,7 @@ import json
 import pprint
 import hashlib
 import time
-from http.cookiejar import CookieJar
+from tempfile import NamedTemporaryFile
 from bs4 import BeautifulSoup
 
 class Soup:
@@ -55,10 +55,18 @@ class Soup:
         self.assertdir(basepath)
         filename = basepath + timestr + meta['type'] + '-' + meta['id'] + ".json"
         if os.path.isfile(filename):
-            # skip, it exists:
-            return
-        with open(filename, 'w') as outfile:
+            # it exists, see if it's valid json:
+            with open(filename) as f:
+                try:
+                    json.load(f)
+                    return
+                except ValueError:
+                    # The file is broken (maybe residue from an old export?), try to overwrite it:
+                    print("\t\t\tOverwriting invalid JSON file %s" % filename)
+                    pass
+        with tempfile.NamedTemporaryFile(dir=os.path.dirname(filename)) as outfile:
             json.dump(meta, outfile)
+            os.link(f.name, filename)
 
     def process_assets(self, meta, post):
         assets = []
